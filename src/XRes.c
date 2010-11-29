@@ -12,7 +12,7 @@
 #include <X11/extensions/extutil.h>
 #include <X11/extensions/XResproto.h>
 #include <X11/extensions/XRes.h>
-
+#include <assert.h>
 
 static XExtensionInfo _xres_ext_info_data;
 static XExtensionInfo *xres_ext_info = &_xres_ext_info_data;
@@ -228,3 +228,119 @@ Status XResQueryClientPixmapBytes (
     return 1;
 }
 
+static Bool ReadClientValues(
+   Display              *dpy,
+   long                 num_ids,
+   XResClientIdValue   *client_ids /* out */
+)
+{
+    int c;
+    for (c = 0; c < num_ids; ++c) {
+        XResClientIdValue* client = client_ids + c;
+        CARD32 value;
+        _XRead32 (dpy, &value, 4);
+        client->spec.client = value;
+        _XRead32 (dpy, &value, 4);
+        client->spec.mask = value;
+        _XRead32 (dpy, &value, 4);
+        client->length = value;
+        client->value = malloc(client->length);
+        _XRead32 (dpy, client->value, client->length);
+    }
+    return True;
+}
+
+Status XResQueryClientIds (
+   Display            *dpy,
+   long                num_specs,
+   XResClientIdSpec   *client_specs,   /* in */
+   long               *num_ids,        /* out */
+   XResClientIdValue **client_ids      /* out */
+)
+{
+    XExtDisplayInfo *info = find_display (dpy);
+    xXResQueryClientIdsReq *req;
+    xXResQueryClientIdsReply rep;
+    int c;
+
+    *num_ids = 0;
+
+    XResCheckExtension (dpy, info, 0);
+    LockDisplay (dpy);
+    GetReq (XResQueryClientIds, req);
+    req->reqType = info->codes->major_opcode;
+    req->XResReqType = X_XResQueryClientIds;
+    req->length += num_specs * 2; /* 2 longs per client id spec */
+    req->numSpecs = num_specs;
+
+    for (c = 0; c < num_specs; ++c) {
+        Data32(dpy, &client_specs[c].client, 4);
+        Data32(dpy, &client_specs[c].mask, 4);
+    }
+
+    if (!_XReply (dpy, (xReply *) &rep, 0, xFalse)) {
+        goto error;
+    }
+
+    *client_ids = calloc(rep.numIds, sizeof(**client_ids));
+    *num_ids = rep.numIds;
+
+    if (!ReadClientValues(dpy, *num_ids, *client_ids)) {
+        goto error;
+    }
+
+    UnlockDisplay (dpy);
+    SyncHandle ();
+    return Success;
+
+ error:
+    XResClientIdsDestroy (*num_ids, *client_ids);
+    *client_ids = NULL;
+
+    UnlockDisplay (dpy);
+    SyncHandle ();
+    return !Success;
+}
+
+void XResClientIdsDestroy (
+   long                num_ids,
+   XResClientIdValue  *client_ids
+)
+{
+    int c;
+    for (c = 0; c < num_ids; ++c) {
+        free(client_ids[c].value);
+    }
+    free(client_ids);
+}
+
+XResClientIdType XResGetClientIdType(
+    XResClientIdValue* value
+)
+{
+    int bit;
+    XResClientIdType idType = 0;
+    Bool found = False;
+    for (bit = 0; bit < XRES_CLIENT_ID_NR; ++bit) {
+        if (value->spec.mask & (1 << bit)) {
+            assert(!found);
+            found = True;
+            idType = bit;
+        }
+    }
+
+    assert(found);
+
+    return idType;
+}
+
+pid_t XResGetClientPid(
+    XResClientIdValue* value
+)
+{
+    if (value->spec.mask & XRES_CLIENT_ID_PID_MASK && value->length >= 4) {
+        return (pid_t) * (CARD32*) value->value;
+    } else {
+        return (pid_t) -1;
+    }
+}
