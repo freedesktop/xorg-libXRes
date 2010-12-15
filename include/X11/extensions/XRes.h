@@ -43,6 +43,24 @@ typedef struct {
   void         *value;
 } XResClientIdValue;
 
+typedef struct {
+  XID           resource;
+  Atom          type;
+} XResResourceIdSpec;
+
+typedef struct {
+  XResResourceIdSpec spec;
+  long          bytes;
+  long          ref_count;
+  long          use_count;
+} XResResourceSizeSpec;
+
+typedef struct {
+  XResResourceSizeSpec  size;
+  long                  num_cross_references;
+  XResResourceSizeSpec *cross_references;
+} XResResourceSizeValue;
+
 _XFUNCPROTOBEGIN
 
 /* v1.0 */
@@ -96,6 +114,20 @@ pid_t XResGetClientPid(XResClientIdValue* value);
 void XResClientIdsDestroy (
    long                num_ids,
    XResClientIdValue  *client_ids
+);
+
+Status XResQueryResourceBytes (
+   Display            *dpy,
+   XID                 client,
+   long                num_specs,
+   XResResourceIdSpec *resource_specs, /* in */
+   long               *num_sizes,      /* out */
+   XResResourceSizeValue **sizes       /* out */
+);
+
+void XResResourceSizeValuesDestroy (
+   long                num_sizes,
+   XResResourceSizeValue *sizes
 );
 
 _XFUNCPROTOEND

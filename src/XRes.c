@@ -237,7 +237,7 @@ static Bool ReadClientValues(
     int c;
     for (c = 0; c < num_ids; ++c) {
         XResClientIdValue* client = client_ids + c;
-        CARD32 value;
+        long int value;
         _XRead32 (dpy, &value, 4);
         client->spec.client = value;
         _XRead32 (dpy, &value, 4);
@@ -343,4 +343,112 @@ pid_t XResGetClientPid(
     } else {
         return (pid_t) -1;
     }
+}
+
+static Status ReadResourceSizeSpec(
+   Display               *dpy,
+   XResResourceSizeSpec  *size
+)
+{
+    long int value;
+    _XRead32(dpy, &value, 4);
+    size->spec.resource = value;
+    _XRead32(dpy, &value, 4);
+    size->spec.type = value;
+    _XRead32(dpy, &value, 4);
+    size->bytes = value;
+    _XRead32(dpy, &value, 4);
+    size->ref_count = value;
+    _XRead32(dpy, &value, 4);
+    size->use_count = value;
+    return 0;
+}
+
+static Status ReadResourceSizeValues(
+   Display                *dpy,
+   long                    num_sizes,
+   XResResourceSizeValue  *sizes)
+{
+    int c;
+    int d;
+    for (c = 0; c < num_sizes; ++c) {
+        long int num;
+        ReadResourceSizeSpec(dpy, &sizes[c].size);
+        _XRead32(dpy, &num, 4);
+        sizes[c].num_cross_references = num;
+        sizes[c].cross_references = num ? calloc(num, sizeof(*sizes[c].cross_references)) : NULL;
+        for (d = 0; d < num; ++d) {
+            ReadResourceSizeSpec(dpy, &sizes[c].cross_references[d]);
+        }
+    }
+    return Success;
+}
+
+Status XResQueryResourceBytes (
+   Display            *dpy,
+   XID                 client,
+   long                num_specs,
+   XResResourceIdSpec *resource_specs, /* in */
+   long               *num_sizes, /* out */
+   XResResourceSizeValue **sizes /* out */
+)
+{
+    XExtDisplayInfo *info = find_display (dpy);
+    xXResQueryResourceBytesReq *req;
+    xXResQueryResourceBytesReply rep;
+    int c;
+
+    *num_sizes = 0;
+
+    XResCheckExtension (dpy, info, 0);
+
+    LockDisplay (dpy);
+    GetReq (XResQueryResourceBytes, req);
+    req->reqType = info->codes->major_opcode;
+    req->XResReqType = X_XResQueryResourceBytes;
+    req->length += num_specs * 2; /* 2 longs per client id spec */
+    req->client = client;
+    req->numSpecs = num_specs;
+
+    for (c = 0; c < num_specs; ++c) {
+        Data32(dpy, &resource_specs[c].resource, 4);
+        Data32(dpy, &resource_specs[c].type, 4);
+    }
+
+    *num_sizes = 0;
+    *sizes = NULL;
+
+    if (!_XReply (dpy, (xReply *) &rep, 0, xFalse)) {
+        goto error;
+    }
+
+    *sizes = calloc(rep.numSizes, sizeof(**sizes));
+    *num_sizes = rep.numSizes;
+
+    if (ReadResourceSizeValues(dpy, *num_sizes, *sizes) != Success) {
+        goto error;
+    }
+
+    UnlockDisplay (dpy);
+    SyncHandle ();
+    return Success;
+
+ error:
+    XResResourceSizeValuesDestroy(*num_sizes, *sizes);
+
+    UnlockDisplay (dpy);
+    SyncHandle ();
+    return !Success;
+}
+
+void XResResourceSizeValuesDestroy (
+   long                num_sizes,
+   XResResourceSizeValue *sizes
+)
+{
+    int c;
+    for (c = 0; c < num_sizes; ++c) {
+        free(sizes[c].cross_references);
+    }
+    free(sizes);
 }
