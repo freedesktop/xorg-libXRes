@@ -29,7 +29,7 @@ AC_PREREQ([2.60])
 # digit in the version number to track changes which don't affect the
 # protocol, so XRes version l.n.m corresponds to protocol version l.n
 #
-AC_INIT([libXres], [1.0.6],
+AC_INIT([libXres], [1.1.99.0],
         [https://bugs.freedesktop.org/enter_bug.cgi?product=xorg], [libXres])
 AC_CONFIG_SRCDIR([Makefile.am])
 AC_CONFIG_HEADERS([config.h])
@@ -48,12 +48,8 @@ XORG_MACROS_VERSION(1.8)
 XORG_DEFAULT_OPTIONS
 XORG_CHECK_MALLOC_ZERO
 
-# Check xres configuration, strip extra digits from package version to
-# find the required protocol version
-RES_VERSION=[`echo $VERSION | sed 's/^\([0-9][0-9]*\.[0-9][0-9]*\).*$/\1/'`]
-
 # Obtain compiler/linker options for depedencies
-PKG_CHECK_MODULES(XRES, x11 xext xextproto [resourceproto >= $RES_VERSION])
+PKG_CHECK_MODULES(XRES, x11 xext xextproto [resourceproto >= 1.2.0])
 
 AC_CONFIG_FILES([Makefile
 		src/Makefile
