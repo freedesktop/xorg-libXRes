@@ -187,7 +187,12 @@ Status XResQueryClientResources (
     }
 
     if(rep.num_types) {
-        if((typs = Xmalloc(sizeof(XResType) * rep.num_types))) {
+        if (rep.num_types < (INT_MAX / sizeof(XResType)))
+            typs = Xmalloc(sizeof(XResType) * rep.num_types);
+        else
+            typs = NULL;
+
+        if (typs != NULL) {
             xXResType scratch;
             int i;
 
