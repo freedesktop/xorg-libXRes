@@ -13,6 +13,18 @@
 #include <X11/extensions/XResproto.h>
 #include <X11/extensions/XRes.h>
 #include <assert.h>
+#include <limits.h>
+
+#ifndef HAVE__XEATDATAWORDS
+static inline void _XEatDataWords(Display *dpy, unsigned long n)
+{
+# ifndef LONG64
+    if (n >= (ULONG_MAX >> 2))
+        _XIOError(dpy);
+# endif
+    _XEatData (dpy, n << 2);
+}
+#endif
 
 static XExtensionInfo _xres_ext_info_data;
 static XExtensionInfo *xres_ext_info = &_xres_ext_info_data;
@@ -131,7 +143,7 @@ Status XResQueryClients (
             *num_clients = rep.num_clients;
             result = 1;
         } else {
-            _XEatData(dpy, rep.length << 2);
+            _XEatDataWords(dpy, rep.length);
         }
     }
 
@@ -183,7 +195,7 @@ Status XResQueryClientResources (
             *num_types = rep.num_types;
             result = 1;
         } else {
-            _XEatData(dpy, rep.length << 2);
+            _XEatDataWords(dpy, rep.length);
         }
     }
 
