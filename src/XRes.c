@@ -130,7 +130,12 @@ Status XResQueryClients (
     }
 
     if(rep.num_clients) {
-        if((clnts = Xmalloc(sizeof(XResClient) * rep.num_clients))) {
+        if (rep.num_clients < (INT_MAX / sizeof(XResClient)))
+            clnts = Xmalloc(sizeof(XResClient) * rep.num_clients);
+        else
+            clnts = NULL;
+
+        if (clnts != NULL) {
             xXResClient scratch;
             int i;
 
