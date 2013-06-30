@@ -240,7 +240,7 @@ Status XResQueryClientPixmapBytes (
     }
 
 #ifdef LONG64
-    *bytes = (rep.bytes_overflow * 4294967295) + rep.bytes;
+    *bytes = (rep.bytes_overflow * 4294967296UL) + rep.bytes;
 #else
     *bytes = rep.bytes_overflow ? 0xffffffff : rep.bytes;
 #endif
