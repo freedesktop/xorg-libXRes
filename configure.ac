@@ -48,13 +48,7 @@ XORG_DEFAULT_OPTIONS
 XORG_CHECK_MALLOC_ZERO
 
 # Obtain compiler/linker options for depedencies
-PKG_CHECK_MODULES(XRES, x11 xext xextproto [resourceproto >= 1.2.0])
-
-# Check for _XEatDataWords function that may be patched into older Xlib release
-SAVE_LIBS="$LIBS"
-LIBS="$XRES_LIBS"
-AC_CHECK_FUNCS([_XEatDataWords])
-LIBS="$SAVE_LIBS"
+PKG_CHECK_MODULES(XRES, [x11 >= 1.6] xext xextproto [resourceproto >= 1.2.0])
 
 AC_CONFIG_FILES([Makefile
 		src/Makefile
